@@ -1,26 +1,227 @@
 @import "tailwindcss";
 
+/* ─── Design Tokens ─────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0c0910;
+  --foreground: #eee5e9;
+
+  /* Palette foundation */
+  --neutral-mid: #7a7088;
+  --accent: #92dce5;
+  --accent-strong: #52dee5;
+  --accent-dim: #4a8a92;
+  --accent-glow: rgba(82, 222, 229, 0.10);
+
+  /* Dividers */
+  --divider: rgba(42, 32, 53, 0.55);
+  --panel-border: #2a2035;
+  --panel-border-strong: #45365a;
+  --panel-bg: #14101c;
+  --panel-bg-subtle: #1e1828;
+
+  /* Text */
+  --muted: #a89fb2;
+  --muted-dim: #5e5568;
+
+  /* Semantic result colors */
+  --win: #52dee5;
+  --draw: #7a7088;        /* purple-tinted gray — reads as neutral on dark purple bg */
+  --loss: #d39eab;
+  --caution: #c4a97a;     /* warm sand — mid-table / caution */
+
+  /* Semantic status colors */
+  --status-fit: #52dee5;
+  --status-injured: #d4a07a;
+  --status-suspended: #b8c290;
+
+  /* Competition colors */
+  --comp-league: #92dce5;
+  --comp-cup: #a8a8e8;
+  --comp-continental: #b8c290;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-chakra);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ─── Base ──────────────────────────────────────────────── */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-chakra), "Chakra Petch", sans-serif;
+  color-scheme: dark;
 }
+
+/* Override Radix UI theme font — it injects --default-font-family
+   which takes priority over body font-family on <Text>, <Heading>, etc. */
+.radix-themes {
+  --default-font-family: var(--font-chakra), "Chakra Petch", sans-serif;
+  --heading-font-family: var(--font-teko), sans-serif;
+  --code-font-family: var(--font-chakra), "Chakra Petch", monospace;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-teko), sans-serif;
+  text-wrap: balance;
+}
+
+/* ─── Panels ────────────────────────────────────────────── */
+.tactical-panel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Structural variant — full-height sidebars, content wrappers */
+.tactical-panel-structural {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.tactical-panel-interactive {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.tactical-panel-interactive:hover {
+  border-color: var(--panel-border-strong);
+  box-shadow: 0 6px 40px rgba(82, 222, 229, 0.10), 0 2px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Utility classes ───────────────────────────────────── */
+.terminal-muted   { color: var(--muted); }
+.terminal-muted-dim { color: var(--muted-dim); }
+
+.stat-label {
+  font-size: 0.625rem;             /* 10px */
+  font-family: var(--font-chakra), "Chakra Petch", sans-serif;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.section-title {
+  font-family: var(--font-teko), sans-serif;
+  font-size: 1.125rem;             /* 18px */
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.divider-tactical {
+  border: none;
+  border-top: 1px solid var(--panel-border);
+}
+
+/* ─── Nav active left-bar indicator ────────────────────── */
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+  outline-offset: 2px;
+}
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.nav-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 0;
+  border-radius: 1px;
+  background: var(--accent);
+  transition: height 0.2s ease;
+}
+.nav-item.active::before  { height: 60%; }
+.nav-item:hover:not(.active)::before { height: 30%; }
+
+.nav-item.active {
+  background: rgba(82, 222, 229, 0.08);
+  color: var(--accent-strong);
+}
+.nav-item:not(.active) {
+  color: var(--muted);
+}
+.nav-item:not(.active):hover {
+  background: rgba(238, 229, 233, 0.04);
+  color: var(--foreground);
+}
+
+/* ─── Live pulse dot ────────────────────────────────────── */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: pulse-live 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1;   transform: scale(1);    box-shadow: 0 0 0  0    var(--accent-glow); }
+  50%       { opacity: 0.6; transform: scale(0.85); box-shadow: 0 0 0 4px transparent; }
+}
+
+/* ─── Ticker / Marquee ──────────────────────────────────── */
+.ticker-wrap {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 32s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ─── Accent glow utility ───────────────────────────────── */
+.accent-glow { box-shadow: 0 0 16px var(--accent-glow); }
+
+/* ─── Soft structural dividers ──────────────────────────── */
+.sidebar-divider-b { border-bottom: 1px solid var(--divider); }
+.sidebar-divider-t { border-top: 1px solid var(--divider); }
+
+/* ─── Ticker soft border ────────────────────────────────── */
+.ticker-border {
+  border-top: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
+}
+
+/* ─── Ranking row ───────────────────────────────────────── */
+.row-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid rgba(42, 32, 53, 0.6);
+  transition: background 0.15s ease;
+}
+.row-item:last-child { border-bottom: none; }
+.row-item:hover { background: rgba(255, 255, 255, 0.03); border-radius: 6px; }
+

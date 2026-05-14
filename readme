@@ -1,0 +1,46 @@
+1. Page Structure (Frontend with Next.js App Router)
+When designing the navigation for a club’s administrative dashboard, you can divide the application into the following routes:
+
+/ (Dashboard): The overview. Here you display the next match, the team’s recent form (last 5 matches: W-W-D-L-W), the season’s top scorer, and the current budget.
+
+/squad (Roster): A table or grid with your players.
+
+Features: Filters by position, sorting by Overall (OVR) or potential, and injury/card status.
+
+/matches (Schedule/Games):
+
+Features: Recording new results (score, possession, goal scorers, assists) and viewing the season schedule.
+
+/transfers (Transfer Market): Where financial management takes place.
+
+Features: Purchase and sale history, budget balance, and a “Shortlist” for transfer targets.
+
+/youth-academy (Youth Academy): Optional, but great for those who enjoy developing talent. A space to track the OVR growth of youth academy players month by month.
+
+2. Style and UI/UX (Tailwind, Radix, and Framer Motion)
+The visual identity of sports dashboards is often heavily focused on Dark Mode, highlighting the colors of the club you’re managing. For example, if you’re in charge of a team like América in Mexico, you can use a neutral dark theme (Tailwind’s zinc or slate) with yellow and blue accents for active components.
+
+Radix UI: Use for interactive and accessible components. The Dialog (Modal) is perfect for the “Add New Game” or “Register Transfer” screen. The Select is ideal for filtering the roster by positions (FW, MF, DF, GK).
+
+Framer Motion: Bring the “video game feel” to the web.
+
+Layout animations when you filter the player list (the cards smoothly rearrange themselves).
+
+Hover effect on player cards, slightly lifting the component, simulating the Ultimate Team selection.
+
+Smooth page transitions (fade in/out) between the Dashboard and the Roster.
+3. Backend Architecture (Node.js) and Database
+Since you will have a separate Node.js backend, a relational data model (PostgreSQL with Prisma or Drizzle ORM) works perfectly for this scenario.
+
+Suggested Entities (Tables):
+
+Career (or Manager): Stores the manager’s information (Manager Name, Current Club, Current Season, Budget).
+
+Player: Name, Position, Current OVR, Potential, Age, Goals, Assists, Club ID.
+
+Match: Date, Opponent, Competition (League, Cup), Goals For, Goals Against, Ball Possession.
+
+MatchEvent (Advanced): To cross-reference data, a table that links who scored the goal or provided the assist in that specific match.
+
+4. “Killer” Feature Tip (Unique Selling Point)
+Progression Chart: Create a component that displays a line chart (you can use a library like Recharts or Tremor) tracking a player’s OVR growth over the seasons. It’s the most satisfying aspect of Career Mode, and EA FC itself doesn’t show this very clearly in the long-term history.
