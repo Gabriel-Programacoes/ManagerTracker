@@ -225,3 +225,35 @@ h1, h2, h3, h4 {
 .row-item:last-child { border-bottom: none; }
 .row-item:hover { background: rgba(255, 255, 255, 0.03); border-radius: 6px; }
 
+/* ─── Stat range slider ─────────────────────────────────── */
+input[type="range"].stat-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: var(--panel-border-strong);
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  flex: 1;
+}
+input[type="range"].stat-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: 0 0 6px var(--accent-glow);
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+input[type="range"].stat-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type="range"].stat-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--background);
+}
+

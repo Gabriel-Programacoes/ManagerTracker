@@ -1,65 +1,67 @@
-import { Grid, Heading, Select, Table, Text } from "@radix-ui/themes";
+import Link from "next/link";
+import { UserPlus, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { players } from "@/lib/mock-data";
-import { ChalkboardRevealCard } from "@/components/chalkboard-reveal-card";
+import { SquadTable } from "@/components/squad/squad-table";
+import { SquadActions } from "@/components/squad/squad-actions";
+import { getMySquad } from "@/app/actions/squad";
+import type { SquadPlayer } from "@/lib/player-utils";
 
-export default function SquadPage() {
+export default async function SquadPage() {
+  const rawTeam = await getMySquad();
+  const myTeam  = rawTeam as unknown as SquadPlayer[];
+
   return (
     <AppShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Heading size="6" className="text-lime-200">Hall of Fame</Heading>
-        <div className="flex items-center gap-2">
-          <Select.Root defaultValue="all">
-            <Select.Trigger aria-label="Filter by position" />
-            <Select.Content>
-              <Select.Item value="all">All Positions</Select.Item>
-              <Select.Item value="GK">GK</Select.Item>
-              <Select.Item value="DF">DF</Select.Item>
-              <Select.Item value="MF">MF</Select.Item>
-              <Select.Item value="FW">FW</Select.Item>
-            </Select.Content>
-          </Select.Root>
+      {/* ── Page header ───────────────────────────────── */}
+      <header className="mb-6 pb-5" style={{ borderBottom: "1px solid var(--divider)" }}>
+        <div className="mb-4 flex items-center gap-2">
+          <Users className="h-4 w-4" style={{ color: "var(--accent)" }} aria-hidden="true" />
+          <p className="stat-label">Gestão de Plantel</p>
         </div>
-      </div>
 
-      <Grid columns={{ initial: "1", lg: "3" }} gap="3" className="mb-4">
-        {players.slice(0, 3).map((p) => (
-          <ChalkboardRevealCard key={`poster-${p.id}`} className="p-4">
-            <Text className="text-6xl leading-none text-lime-200">{p.overall}</Text>
-            <Text size="5" className="mt-2 text-gray-100">{p.name}</Text>
-            <Text size="2" className="terminal-muted">{p.goals}G / {p.assists}A • {p.position}</Text>
-          </ChalkboardRevealCard>
-        ))}
-      </Grid>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1
+              className="uppercase leading-none"
+              style={{
+                fontFamily: "var(--font-teko), sans-serif",
+                fontSize: "clamp(2rem, 6vw, 3.5rem)",
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+                color: "var(--foreground)",
+              }}
+            >
+              Seu{" "}
+              <span style={{ color: "var(--accent)" }}>Elenco</span>
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              {myTeam.length} jogador{myTeam.length !== 1 ? "es" : ""} · clique em um jogador para ver detalhes
+            </p>
+          </div>
 
-      <div className="tactical-panel p-2">
-        <Table.Root className="[font-variant-numeric:tabular-nums]">
-          <Table.Header>
-            <Table.Row className="border-b-2 border-zinc-700">
-              <Table.ColumnHeaderCell>Player</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Pos</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>OVR</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>POT</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Age</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>G/A</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {players.map((p) => (
-              <Table.Row key={p.id} className="border-b border-zinc-800">
-                <Table.RowHeaderCell>{p.name}</Table.RowHeaderCell>
-                <Table.Cell>{p.position}</Table.Cell>
-                <Table.Cell>{p.overall}</Table.Cell>
-                <Table.Cell>{p.potential}</Table.Cell>
-                <Table.Cell>{p.age}</Table.Cell>
-                <Table.Cell>{p.goals}/{p.assists}</Table.Cell>
-                <Table.Cell>{p.status}</Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
-      </div>
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <SquadActions />
+            <Link
+              href="/squad/new"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+              style={{
+                background: "rgba(82,222,229,0.05)",
+                border: "1px solid rgba(82,222,229,0.2)",
+                color: "var(--muted)",
+                letterSpacing: "0.04em",
+              }}
+              onMouseEnter={undefined}
+            >
+              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              Criar jogador
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Squad table with modal ─────────────────────── */}
+      <SquadTable players={myTeam} />
     </AppShell>
   );
 }

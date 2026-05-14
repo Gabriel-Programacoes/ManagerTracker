@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// O "Dicionário" (Dados que vêm do CSV)
+model FifaPlayer {
+  id       Int     @id // O "ID" do CSV
+  name     String // O "Name" do CSV
+  overall  Int // O "OVR"
+  position String // O "Position"
+  age      Int // O "Age"
+  nation   String? // O "Nation"
+  league   String? // O "League"
+  team     String? // O "Team"
+
+  // Atributos principais (PAC, SHO, PAS, DRI, DEF, PHY)
+  pace        Int?
+  shooting    Int?
+  passing     Int?
+  dribbling   Int?
+  defending   Int?
+  physicality Int?
+
+  @@map("fifa_players") // Nome da tabela no banco
+}
+
+// Elenco Atual (Dados Mutáveis)
+model SquadPlayer {
+  id             String @id @default(cuid())
+  fifaPlayerId   Int? // ID original do jogo (para puxar foto depois se quiser)
+  name           String // Salvamos o nome para leitura rápida
+  position       String
+  currentOverall Int // O overall atual no save (que vai evoluir)
+
+  // Estatísticas da temporada
+  goals       Int @default(0)
+  assists     Int @default(0)
+  matches     Int @default(0)
+  yellowCards Int @default(0)
+  redCards    Int @default(0)
+  cleanSheets Int @default(0)
+
+  // Contrato & finanças (valores em milhares de €)
+  marketValue   Int @default(0)  // ex: 5000 = €5M
+  salary        Int @default(0)  // semanal, ex: 50 = €50k/sem
+  contractYears Int @default(1)  // anos restantes
+
+  // Prêmios da temporada
+  awardPlayerOfSeason  Boolean @default(false)
+  awardTopScorer       Boolean @default(false)
+  awardBestGoalkeeper  Boolean @default(false)
+  awardBestYoungPlayer Boolean @default(false)
+  awardBestDefender    Boolean @default(false)
+
+  // Status no time
+  isStarter Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("squad_players")
+}
