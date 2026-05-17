@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { browseFifaPlayers } from "@/app/actions/players";
 import { addPlayerToSquad } from "@/app/actions/squad";
-import { ovrColor, statColor, POSITION_STYLE } from "@/lib/player-utils";
+import { ovrColor, statColor, POSITION_STYLE, normalizeFifaPosition } from "@/lib/player-utils";
 
 /* ── Types ─────────────────────────────────────────────── */
 type FifaPlayer = {
@@ -254,7 +254,7 @@ export function AddPlayerModal({ onClose }: AddPlayerModalProps) {
                 </tr>
               ) : (
                 players.map((player, i) => {
-                  const pos      = player.position ?? "—";
+                  const pos      = normalizeFifaPosition(player.position ?? "—");
                   const posStyle = POSITION_STYLE[pos] ?? { color: "var(--muted)", bg: "rgba(255,255,255,0.05)" };
                   const isAdded  = added.has(player.id);
                   const isAdding = adding === player.id;

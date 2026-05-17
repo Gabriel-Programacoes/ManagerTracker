@@ -4,28 +4,8 @@ import { useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Plus, X, UserPlus, CheckCircle2 } from "lucide-react";
 import { addCustomPlayerToSquad } from "@/app/actions/squad";
-
-/* ─── Position map ──────────────────────────────────────── */
-const POSITIONS = [
-  { value: "GOL", label: "GOL — Goleiro" },
-  { value: "ZAG", label: "ZAG — Zagueiro" },
-  { value: "LAT", label: "LAT — Lateral" },
-  { value: "VOL", label: "VOL — Volante" },
-  { value: "MC",  label: "MC — Meia Central" },
-  { value: "MEI", label: "MEI — Meia Atacante" },
-  { value: "PTE", label: "PTE — Ponta Esq." },
-  { value: "PTD", label: "PTD — Ponta Dir." },
-  { value: "ATA", label: "ATA — Atacante" },
-];
-
-/* ─── OVR rating color ──────────────────────────────────── */
-function ovrColor(ovr: number): string {
-  if (ovr >= 90) return "var(--caution)";       // gold — elite
-  if (ovr >= 80) return "var(--accent-strong)"; // cyan — very good
-  if (ovr >= 70) return "var(--accent)";        // light cyan — good
-  if (ovr >= 60) return "var(--muted)";         // muted — average
-  return "var(--muted-dim)";                    // dim — weak
-}
+import { POSITIONS, ovrColor } from "@/lib/player-utils";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 /* ─── Shared input style ────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -187,29 +167,15 @@ export function ManualPlayerForm() {
 
               {/* Position */}
               <div className="flex flex-1 flex-col gap-1">
-                <label htmlFor="mp-pos" className="stat-label" style={{ paddingLeft: "2px" }}>
+                <label className="stat-label" style={{ paddingLeft: "2px" }}>
                   Posição
                 </label>
-                <select
+                <CustomSelect
                   id="mp-pos"
-                  style={{ ...inputBase }}
                   value={form.position}
-                  onChange={(e) => patch({ position: e.target.value })}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--accent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-glow)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--panel-border-strong)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  {POSITIONS.map((p) => (
-                    <option key={p.value} value={p.value} style={{ background: "var(--panel-bg)" }}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => patch({ position: v })}
+                  options={POSITIONS}
+                />
               </div>
 
               {/* OVR */}

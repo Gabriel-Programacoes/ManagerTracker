@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { ovrColor, POSITION_STYLE, type SquadPlayer } from "@/lib/player-utils";
@@ -17,6 +17,15 @@ const DEFENSIVE_POSITIONS = new Set(["GOL", "ZAG", "LAT"]);
 
 export function SquadTable({ players }: SquadTableProps) {
   const [selected, setSelected] = useState<SquadPlayer | null>(null);
+
+  /* Whenever the server refreshes `players` (via revalidatePath after a save),
+     keep `selected` in sync so the modal always shows the latest data. */
+  useEffect(() => {
+    if (!selected) return;
+    const updated = players.find((p) => p.id === selected.id);
+    if (updated) setSelected(updated);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players]);
 
   return (
     <>

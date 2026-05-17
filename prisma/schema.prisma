@@ -9,16 +9,16 @@ datasource db {
 
 // O "Dicionário" (Dados que vêm do CSV)
 model FifaPlayer {
-  id       Int     @id // O "ID" do CSV
-  name     String // O "Name" do CSV
-  overall  Int // O "OVR"
-  position String // O "Position"
-  age      Int // O "Age"
-  nation   String? // O "Nation"
-  league   String? // O "League"
-  team     String? // O "Team"
+  id       Int     @id
+  name     String
+  overall  Int
+  position String
+  age      Int
+  nation   String?
+  league   String?
+  team     String?
 
-  // Atributos principais (PAC, SHO, PAS, DRI, DEF, PHY)
+  // Atributos principais
   pace        Int?
   shooting    Int?
   passing     Int?
@@ -26,7 +26,23 @@ model FifaPlayer {
   defending   Int?
   physicality Int?
 
-  @@map("fifa_players") // Nome da tabela no banco
+  // Perfil físico e habilidades
+  height        Int?
+  weight        Int?
+  preferredFoot String?
+  weakFoot      Int?
+  skillMoves    Int?
+  playstyle     String?
+  altPositions  String?
+
+  // Atributos de Goleiro
+  gkDiving      Int?
+  gkHandling    Int?
+  gkKicking     Int?
+  gkPositioning Int?
+  gkReflexes    Int?
+
+  @@map("fifa_players")
 }
 
 // Elenco Atual (Dados Mutáveis)
@@ -46,9 +62,30 @@ model SquadPlayer {
   cleanSheets Int @default(0)
 
   // Contrato & finanças (valores em milhares de €)
-  marketValue   Int @default(0)  // ex: 5000 = €5M
-  salary        Int @default(0)  // semanal, ex: 50 = €50k/sem
-  contractYears Int @default(1)  // anos restantes
+  marketValue   Int @default(0) // ex: 5000 = €5M
+  salary        Int @default(0) // semanal, ex: 50 = €50k/sem
+  contractYears Int @default(1) // anos restantes
+
+  // Atributos detalhados (jogadores criados manualmente)
+  pace       Int?
+  shooting   Int?
+  passing    Int?
+  dribbling  Int?
+  defending  Int?
+  physical   Int?
+  age        Int?
+  height     Int?
+  feet       String?
+  skillMoves Int?
+  weakFoot   Int?
+  playstyle  String?
+
+  // Atributos de Goleiro
+  gkDiving      Int?
+  gkHandling    Int?
+  gkKicking     Int?
+  gkPositioning Int?
+  gkReflexes    Int?
 
   // Prêmios da temporada
   awardPlayerOfSeason  Boolean @default(false)
@@ -56,6 +93,9 @@ model SquadPlayer {
   awardBestGoalkeeper  Boolean @default(false)
   awardBestYoungPlayer Boolean @default(false)
   awardBestDefender    Boolean @default(false)
+  awardBallondOr       Boolean @default(false)
+  awardMonthlyBest     Int     @default(0)
+  awardMotm            Int     @default(0)
 
   // Status no time
   isStarter Boolean  @default(false)

@@ -6,17 +6,21 @@ import { motion } from "framer-motion";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { createDetailedPlayer } from "@/app/actions/squad";
 import {
-  calcOverall, ovrColor, statColor,
+  ovrColor, statColor,
   POSITIONS, POSITION_STYLE,
   type DetailedPlayerInput,
 } from "@/lib/player-utils";
+import {CustomSelect} from "@/components/ui/custom-select";
 
 /* ─── Defaults ──────────────────────────────────────────── */
 const DEFAULT: DetailedPlayerInput = {
   name: "", position: "ATA", age: 23, height: 178,
   feet: "Direito", skillMoves: 3, weakFoot: 3, playstyle: "",
+  overall: 75,
   pace: 70, shooting: 70, passing: 65,
   dribbling: 70, defending: 30, physical: 65,
+  gkDiving: 70, gkHandling: 70, gkKicking: 65,
+  gkPositioning: 70, gkReflexes: 70,
   marketValue: 0, salary: 0, contractYears: 1,
 };
 
@@ -27,6 +31,14 @@ const STATS: { key: keyof DetailedPlayerInput; label: string }[] = [
   { key: "dribbling", label: "Drible" },
   { key: "defending", label: "Defesa" },
   { key: "physical",  label: "Físico" },
+];
+
+const GK_STATS: { key: keyof DetailedPlayerInput; label: string }[] = [
+  { key: "gkDiving",      label: "Mergulho" },
+  { key: "gkHandling",    label: "Manuseio" },
+  { key: "gkKicking",     label: "Chute" },
+  { key: "gkPositioning", label: "Posicionamento" },
+  { key: "gkReflexes",    label: "Reflexos" },
 ];
 
 const FEET_OPTIONS = ["Direito", "Esquerdo", "Ambos"];
@@ -53,6 +65,12 @@ function blurStyle(el: HTMLElement) {
   el.style.borderColor = "var(--panel-border-strong)";
   el.style.boxShadow = "none";
 }
+
+/* ─── Safe number parse ─────────────────────────────────── */
+const safeInt = (val: string, fallback = 0): number => {
+  const n = parseInt(val, 10);
+  return isNaN(n) ? fallback : n;
+};
 
 /* ─── Stat bar (read-only preview) ─────────────────────── */
 function StatBar({ label, value }: { label: string; value: number }) {
@@ -93,7 +111,8 @@ export function CreatePlayerForm() {
 
   const patch = (p: Partial<DetailedPlayerInput>) => setForm((f) => ({ ...f, ...p }));
 
-  const ovr     = calcOverall(form.position, form.pace, form.shooting, form.passing, form.dribbling, form.defending, form.physical);
+  const isGK     = form.position === "GOL";
+  const ovr      = form.overall ?? 75;
   const posStyle = POSITION_STYLE[form.position] ?? { color: "var(--muted)", bg: "rgba(255,255,255,0.05)" };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -133,29 +152,22 @@ export function CreatePlayerForm() {
 
               {/* Position */}
               <div className="flex flex-col gap-1">
-                <label htmlFor="cp-pos" className="stat-label" style={{ paddingLeft: 2 }}>Posição</label>
-                <select
-                  id="cp-pos" style={inputBase} value={form.position}
-                  onChange={(e) => patch({ position: e.target.value })}
-                  onFocus={(e) => focusStyle(e.currentTarget)}
-                  onBlur={(e) => blurStyle(e.currentTarget)}
-                >
-                  {POSITIONS.map((p) => (
-                    <option key={p.value} value={p.value} style={{ background: "var(--panel-bg)" }}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                <label className="stat-label" style={{ paddingLeft: 2 }}>Posição</label>
+                <CustomSelect
+                  id="cp-pos"
+                  value={form.position}
+                  onChange={(v) => patch({ position: v })}
+                  options={POSITIONS}
+                />
               </div>
 
-              {/* Playstyle */}
+              {/* Overall */}
               <div className="flex flex-col gap-1">
-                <label htmlFor="cp-style" className="stat-label" style={{ paddingLeft: 2 }}>Estilo de Jogo</label>
+                <label htmlFor="cp-ovr" className="stat-label" style={{ paddingLeft: 2 }}>Overall</label>
                 <input
-                  id="cp-style" type="text"
-                  placeholder="Ex: Driblador, Fixo, Clássico..."
-                  style={inputBase} value={form.playstyle}
-                  onChange={(e) => patch({ playstyle: e.target.value })}
+                  id="cp-ovr" type="number" min={1} max={99} required
+                  style={inputBase} value={form.overall ?? 75}
+                  onChange={(e) => patch({ overall: Math.min(99, Math.max(1, safeInt(e.target.value, 75))) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -166,8 +178,8 @@ export function CreatePlayerForm() {
                 <label htmlFor="cp-age" className="stat-label" style={{ paddingLeft: 2 }}>Idade</label>
                 <input
                   id="cp-age" type="number" min={15} max={45}
-                  style={inputBase} value={form.age}
-                  onChange={(e) => patch({ age: Number(e.target.value) })}
+                  style={inputBase} value={form.age ?? 23}
+                  onChange={(e) => patch({ age: safeInt(e.target.value, 23) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -178,8 +190,8 @@ export function CreatePlayerForm() {
                 <label htmlFor="cp-height" className="stat-label" style={{ paddingLeft: 2 }}>Altura (cm)</label>
                 <input
                   id="cp-height" type="number" min={150} max={210}
-                  style={inputBase} value={form.height}
-                  onChange={(e) => patch({ height: Number(e.target.value) })}
+                  style={inputBase} value={form.height ?? 178}
+                  onChange={(e) => patch({ height: safeInt(e.target.value, 178) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -255,8 +267,8 @@ export function CreatePlayerForm() {
           <section>
             <p className="stat-label mb-4">Atributos</p>
             <div className="flex flex-col gap-4">
-              {STATS.map(({ key, label }) => {
-                const val = form[key] as number;
+              {(isGK ? GK_STATS : STATS).map(({ key, label }) => {
+                const val = (form[key] as number) ?? 70;
                 return (
                   <div key={key} className="flex items-center gap-3">
                     <span className="stat-label" style={{ width: "7rem", flexShrink: 0 }}>{label}</span>
@@ -292,8 +304,8 @@ export function CreatePlayerForm() {
                 <input
                   id="cp-mv" type="number" min={0}
                   placeholder="Ex: 5000 = €5M"
-                  style={inputBase} value={form.marketValue}
-                  onChange={(e) => patch({ marketValue: Math.max(0, Number(e.target.value)) })}
+                  style={inputBase} value={form.marketValue ?? 0}
+                  onChange={(e) => patch({ marketValue: Math.max(0, safeInt(e.target.value, 0)) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -307,8 +319,8 @@ export function CreatePlayerForm() {
                 <input
                   id="cp-sal" type="number" min={0}
                   placeholder="Ex: 50 = €50k/sem"
-                  style={inputBase} value={form.salary}
-                  onChange={(e) => patch({ salary: Math.max(0, Number(e.target.value)) })}
+                  style={inputBase} value={form.salary ?? 0}
+                  onChange={(e) => patch({ salary: Math.max(0, safeInt(e.target.value, 0)) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -321,8 +333,8 @@ export function CreatePlayerForm() {
                 </label>
                 <input
                   id="cp-ct" type="number" min={0} max={10}
-                  style={inputBase} value={form.contractYears}
-                  onChange={(e) => patch({ contractYears: Math.max(0, Math.floor(Number(e.target.value))) })}
+                  style={inputBase} value={form.contractYears ?? 1}
+                  onChange={(e) => patch({ contractYears: Math.max(0, safeInt(e.target.value, 1)) })}
                   onFocus={(e) => focusStyle(e.currentTarget)}
                   onBlur={(e) => blurStyle(e.currentTarget)}
                 />
@@ -400,19 +412,13 @@ export function CreatePlayerForm() {
               <span style={{ color: "var(--muted-dim)" }}>·</span>
               <span className="stat-label" style={{ color: "var(--caution)" }} title="Skill Moves">SM {"★".repeat(form.skillMoves)}</span>
               <span style={{ color: "var(--muted-dim)" }}>·</span>
-              <span className="stat-label" style={{ color: "var(--accent)" }} title="Perna Ruim">WF {"★".repeat(form.weakFoot)}</span>
-              {form.playstyle && (
-                <>
-                  <span style={{ color: "var(--muted-dim)" }}>·</span>
-                  <span className="stat-label" style={{ color: "var(--caution)" }}>{form.playstyle}</span>
-                </>
-              )}
+              <span className="stat-label" style={{ color: "var(--accent)" }} title="Perna Ruim">PR {"★".repeat(form.weakFoot)}</span>
             </div>
 
             {/* Stat bars */}
             <div className="flex flex-col gap-2.5">
-              {STATS.map(({ key, label }) => (
-                <StatBar key={key} label={label} value={form[key] as number} />
+              {(isGK ? GK_STATS : STATS).map(({ key, label }) => (
+                <StatBar key={key} label={label} value={(form[key] as number) ?? 70} />
               ))}
             </div>
           </motion.div>

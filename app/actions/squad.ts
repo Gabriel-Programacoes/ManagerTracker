@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { calcOverall, type DetailedPlayerInput } from '@/lib/player-utils';
+import { normalizeFifaPosition, type DetailedPlayerInput } from '@/lib/player-utils';
 
 export async function addPlayerToSquad(player: { id: number, name: string, overall: number, position: string }) {
     try {
@@ -10,7 +10,7 @@ export async function addPlayerToSquad(player: { id: number, name: string, overa
             data: {
                 fifaPlayerId: player.id,
                 name: player.name,
-                position: player.position,
+                position: normalizeFifaPosition(player.position),
                 currentOverall: player.overall,
             }
         });
@@ -33,17 +33,32 @@ export async function getMySquad() {
             .filter((p) => p.fifaPlayerId != null)
             .map((p) => p.fifaPlayerId as number);
 
-        const fifaMap = new Map<number, { pace: number | null; shooting: number | null; passing: number | null; dribbling: number | null; defending: number | null; physicality: number | null; age: number }>();
+        const fifaMap = new Map<number, {
+            pace: number | null; shooting: number | null; passing: number | null;
+            dribbling: number | null; defending: number | null; physicality: number | null;
+            age: number;
+            height: number | null; weight: number | null;
+            preferredFoot: string | null; weakFoot: number | null; skillMoves: number | null;
+            playstyle: string | null;
+            gkDiving: number | null; gkHandling: number | null; gkKicking: number | null;
+            gkPositioning: number | null; gkReflexes: number | null;
+        }>();
 
         if (fifaIds.length > 0) {
             const fifaPlayers = await prisma.fifaPlayer.findMany({
                 where: { id: { in: fifaIds } },
-                select: { id: true, pace: true, shooting: true, passing: true, dribbling: true, defending: true, physicality: true, age: true },
+                select: {
+                    id: true,
+                    pace: true, shooting: true, passing: true, dribbling: true, defending: true, physicality: true,
+                    age: true, height: true, weight: true,
+                    preferredFoot: true, weakFoot: true, skillMoves: true, playstyle: true,
+                    gkDiving: true, gkHandling: true, gkKicking: true, gkPositioning: true, gkReflexes: true,
+                },
             });
             for (const fp of fifaPlayers) fifaMap.set(fp.id, fp);
         }
 
-        // Merge FIFA attributes into squad players (pace/shooting/etc.)
+        // Merge FIFA attributes into squad players
         return squadPlayers.map((p) => {
             if (p.fifaPlayerId == null) return p;
             const fifa = fifaMap.get(p.fifaPlayerId);
@@ -55,8 +70,18 @@ export async function getMySquad() {
                 passing:   fifa.passing,
                 dribbling: fifa.dribbling,
                 defending: fifa.defending,
-                physical:  fifa.physicality, // matches SquadPlayer type key
-                // Use FIFA age only if squad record has none (future: squad could override)
+                physical:  fifa.physicality,
+                age:       p.age ?? fifa.age,
+                height:    p.height ?? fifa.height,
+                feet:      p.feet ?? fifa.preferredFoot,
+                weakFoot:  p.weakFoot ?? fifa.weakFoot,
+                skillMoves: p.skillMoves ?? fifa.skillMoves,
+                playstyle: p.playstyle ?? fifa.playstyle,
+                gkDiving:      fifa.gkDiving,
+                gkHandling:    fifa.gkHandling,
+                gkKicking:     fifa.gkKicking,
+                gkPositioning: fifa.gkPositioning,
+                gkReflexes:    fifa.gkReflexes,
             };
         });
     } catch (error) {
@@ -92,11 +117,8 @@ export async function addCustomPlayerToSquad(data: {
 }
 
 export async function createDetailedPlayer(data: DetailedPlayerInput) {
-    const overall = calcOverall(
-        data.position,
-        data.pace, data.shooting, data.passing,
-        data.dribbling, data.defending, data.physical,
-    );
+    const overall = data.overall;
+    const isGK = data.position === "GOL";
     try {
         await prisma.squadPlayer.create({
             data: {
@@ -106,6 +128,23 @@ export async function createDetailedPlayer(data: DetailedPlayerInput) {
                 marketValue:   data.marketValue,
                 salary:        data.salary,
                 contractYears: data.contractYears,
+                pace:       isGK ? undefined : data.pace,
+                shooting:   isGK ? undefined : data.shooting,
+                passing:    isGK ? undefined : data.passing,
+                dribbling:  isGK ? undefined : data.dribbling,
+                defending:  isGK ? undefined : data.defending,
+                physical:   isGK ? undefined : data.physical,
+                age:        data.age,
+                height:     data.height,
+                feet:       data.feet,
+                skillMoves: data.skillMoves,
+                weakFoot:   data.weakFoot,
+                playstyle:  data.playstyle,
+                gkDiving:      isGK ? data.gkDiving      : undefined,
+                gkHandling:    isGK ? data.gkHandling     : undefined,
+                gkKicking:     isGK ? data.gkKicking      : undefined,
+                gkPositioning: isGK ? data.gkPositioning  : undefined,
+                gkReflexes:    isGK ? data.gkReflexes     : undefined,
             },
         });
         revalidatePath('/squad');
@@ -127,6 +166,9 @@ export type ContractData = {
     awardBestGoalkeeper: boolean;
     awardBestYoungPlayer: boolean;
     awardBestDefender: boolean;
+    awardBallondOr: boolean;
+    awardMonthlyBest: number;
+    awardMotm: number;
 };
 
 export async function updatePlayerContract(id: string, data: Partial<ContractData>) {
@@ -139,3 +181,26 @@ export async function updatePlayerContract(id: string, data: Partial<ContractDat
         return { success: false };
     }
 }
+
+/* ── Estatísticas da temporada ──────────────────────────── */
+
+export type SeasonStats = {
+    goals: number;
+    assists: number;
+    matches: number;
+    yellowCards: number;
+    redCards: number;
+    cleanSheets: number;
+};
+
+export async function updatePlayerStats(id: string, data: SeasonStats) {
+    try {
+        await prisma.squadPlayer.update({ where: { id }, data });
+        revalidatePath('/squad');
+        return { success: true };
+    } catch (error) {
+        console.error('Erro ao atualizar estatísticas:', error);
+        return { success: false };
+    }
+}
+

@@ -8,9 +8,10 @@ import {
   ShieldCheck,
   Trophy, Star, Dumbbell,
   TrendingUp, Wallet, CalendarClock,
+  Medal, Flame,
 } from "lucide-react";
 import { ovrColor, statColor, POSITION_STYLE, type SquadPlayer } from "@/lib/player-utils";
-import { updatePlayerContract, type ContractData } from "@/app/actions/squad";
+import { updatePlayerContract, updatePlayerStats, type ContractData, type SeasonStats } from "@/app/actions/squad";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface PlayerDetailModalProps {
@@ -40,6 +41,14 @@ const RADAR_AXES = [
   { key: "passing",   label: "PAS", angle: 210 },
 ] as const;
 
+const GK_RADAR_AXES = [
+  { key: "gkDiving",      label: "MER", angle: -90 },
+  { key: "gkReflexes",    label: "REF", angle: -30 },
+  { key: "gkHandling",    label: "MAN", angle:  30 },
+  { key: "gkKicking",     label: "CHU", angle:  90 },
+  { key: "gkPositioning", label: "POS", angle: 150 },
+] as const;
+
 function radarCoord(cx: number, cy: number, r: number, angleDeg: number, val: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
@@ -53,13 +62,13 @@ function gridCoord(cx: number, cy: number, r: number, angleDeg: number) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function RadarChart({ stats }: { stats: Record<string, number> }) {
+function RadarChart({ stats, axes }: { stats: Record<string, number>; axes: readonly { key: string; label: string; angle: number }[] }) {
   const cx = 110; const cy = 110; const r = 78;
   const labelR = r + 16;
 
   const gridLevels = [0.25, 0.5, 0.75, 1];
 
-  const statPolygon = RADAR_AXES.map((ax) =>
+  const statPolygon = axes.map((ax) =>
     radarCoord(cx, cy, r, ax.angle, stats[ax.key] ?? 0)
   ).map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
@@ -67,7 +76,7 @@ function RadarChart({ stats }: { stats: Record<string, number> }) {
     <svg viewBox="0 0 220 220" width="220" height="220" aria-hidden="true">
       {/* Grid rings */}
       {gridLevels.map((level) => {
-        const pts = RADAR_AXES.map((ax) => {
+        const pts = axes.map((ax) => {
           const { x, y } = gridCoord(cx, cy, r * level, ax.angle);
           return `${x.toFixed(2)},${y.toFixed(2)}`;
         }).join(" ");
@@ -83,7 +92,7 @@ function RadarChart({ stats }: { stats: Record<string, number> }) {
       })}
 
       {/* Axis lines */}
-      {RADAR_AXES.map((ax) => {
+      {axes.map((ax) => {
         const { x, y } = gridCoord(cx, cy, r, ax.angle);
         return (
           <line
@@ -108,7 +117,7 @@ function RadarChart({ stats }: { stats: Record<string, number> }) {
       />
 
       {/* Axis labels */}
-      {RADAR_AXES.map((ax) => {
+      {axes.map((ax) => {
         const { x, y } = gridCoord(cx, cy, labelR, ax.angle);
         const val = stats[ax.key] ?? 0;
         const color = val > 0 ? statColor(val) : "var(--muted-dim)";
@@ -194,12 +203,18 @@ function SeasonBox({
 }
 
 /* ── Award badge ────────────────────────────────────────── */
-const AWARDS = [
-  { key: "awardPlayerOfSeason",  label: "Melhor Jogador",    icon: Star,      color: "#c4a97a" },
-  { key: "awardTopScorer",       label: "Artilheiro",        icon: Goal,      color: "#52dee5" },
-  { key: "awardBestGoalkeeper",  label: "Melhor Goleiro",    icon: ShieldCheck, color: "#a8a8e8" },
-  { key: "awardBestYoungPlayer", label: "Jovem do Ano",      icon: TrendingUp,color: "#b8c290" },
-  { key: "awardBestDefender",    label: "Melhor Defensor",   icon: Dumbbell,  color: "#d39eab" },
+const BOOLEAN_AWARDS = [
+  { key: "awardBallondOr",      label: "Bola de Ouro",      icon: Star,        color: "#f0c040" },
+  { key: "awardPlayerOfSeason", label: "Melhor Jogador",    icon: Trophy,      color: "#c4a97a" },
+  { key: "awardTopScorer",      label: "Artilheiro",        icon: Goal,        color: "#52dee5" },
+  { key: "awardBestGoalkeeper", label: "Melhor Goleiro",    icon: ShieldCheck, color: "#a8a8e8" },
+  { key: "awardBestYoungPlayer",label: "Jovem do Ano",      icon: TrendingUp,  color: "#b8c290" },
+  { key: "awardBestDefender",   label: "Melhor Defensor",   icon: Dumbbell,    color: "#d39eab" },
+] as const;
+
+const COUNTER_AWARDS = [
+  { key: "awardMonthlyBest", label: "Melhor do Mês", icon: Medal,    color: "#e8b86d" },
+  { key: "awardMotm",        label: "MOTM",          icon: Flame,    color: "#e87d6d" },
 ] as const;
 
 /* ── Number input (inline) ──────────────────────────────── */
@@ -233,15 +248,32 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
 
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
+  const [editingStats, setEditingStats] = useState(false);
+  const [savingStats,  setSavingStats]  = useState(false);
+  const [editingAwards, setEditingAwards] = useState(false);
+  const [savingAwards,  setSavingAwards]  = useState(false);
+  const [statsForm, setStatsForm] = useState<SeasonStats>({
+    goals: 0, assists: 0, matches: 0, yellowCards: 0, redCards: 0, cleanSheets: 0,
+  });
   const [form, setForm]       = useState<ContractData>({
     marketValue: 0, salary: 0, contractYears: 1,
     awardPlayerOfSeason: false, awardTopScorer: false,
     awardBestGoalkeeper: false, awardBestYoungPlayer: false, awardBestDefender: false,
+    awardBallondOr: false,
+    awardMonthlyBest: 0, awardMotm: 0,
   });
 
   /* Sync form whenever player changes */
   useEffect(() => {
     if (!player) return;
+    setStatsForm({
+      goals:       player.goals       ?? 0,
+      assists:     player.assists     ?? 0,
+      matches:     player.matches     ?? 0,
+      yellowCards: player.yellowCards ?? 0,
+      redCards:    player.redCards    ?? 0,
+      cleanSheets: player.cleanSheets ?? 0,
+    });
     setForm({
       marketValue:         player.marketValue      ?? 0,
       salary:              player.salary           ?? 0,
@@ -251,9 +283,14 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
       awardBestGoalkeeper:  player.awardBestGoalkeeper  ?? false,
       awardBestYoungPlayer: player.awardBestYoungPlayer ?? false,
       awardBestDefender:    player.awardBestDefender    ?? false,
+      awardBallondOr:       player.awardBallondOr       ?? false,
+      awardMonthlyBest:     player.awardMonthlyBest     ?? 0,
+      awardMotm:            player.awardMotm            ?? 0,
     });
     setEditing(false);
-  }, [player?.id]);
+    setEditingStats(false);
+    setEditingAwards(false);
+  }, [player]);
 
   /* ESC to close */
   useEffect(() => {
@@ -268,6 +305,11 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
   const posStyle = POSITION_STYLE[pos] ?? { color: "var(--muted)", bg: "rgba(255,255,255,0.05)" };
   const ovr      = player.currentOverall;
 
+  const FOOT_MAP: Record<string, string> = { Right: "Direito", Left: "Esquerdo", Both: "Ambos" };
+  const feetLabel = player.feet ? (FOOT_MAP[player.feet] ?? player.feet) : null;
+
+  const isGK = pos === "GOL";
+
   const STAT_DEFS = [
     { key: "pace",      label: "Velocidade" },
     { key: "shooting",  label: "Finalização" },
@@ -277,21 +319,48 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
     { key: "physical",  label: "Físico" },
   ] as const;
 
-  const hasDetailedStats = STAT_DEFS.some(({ key }) => player[key] != null);
+  const GK_STAT_DEFS = [
+    { key: "gkDiving",      label: "Mergulho" },
+    { key: "gkHandling",    label: "Manuseio" },
+    { key: "gkKicking",     label: "Chute" },
+    { key: "gkPositioning", label: "Posicionamento" },
+    { key: "gkReflexes",    label: "Reflexos" },
+  ] as const;
+
+  const activeDefs   = isGK ? GK_STAT_DEFS : STAT_DEFS;
+  const activeAxes   = isGK ? GK_RADAR_AXES : RADAR_AXES;
+
+  const hasDetailedStats = isGK
+    ? GK_STAT_DEFS.some(({ key }) => player[key] != null)
+    : STAT_DEFS.some(({ key }) => player[key] != null);
+
   const radarStats = Object.fromEntries(
-    STAT_DEFS.map(({ key }) => [key, player[key] ?? 0])
+    activeDefs.map(({ key }) => [key, player[key] ?? 0])
   );
-  // Show radar if any stat was populated (even 0 is a valid stored value)
-  const hasRadarData = STAT_DEFS.some(({ key }) => player[key] != null);
+  const hasRadarData = hasDetailedStats;
 
   const isDefensive = ["GOL", "ZAG", "LAT"].includes(pos);
-  const activeAwards = AWARDS.filter((a) => form[a.key]);
+  const activeAwards = BOOLEAN_AWARDS.filter((a) => form[a.key]);
 
   const handleSave = async () => {
     setSaving(true);
     await updatePlayerContract(player.id, form);
     setSaving(false);
     setEditing(false);
+  };
+
+  const handleStatsSave = async () => {
+    setSavingStats(true);
+    await updatePlayerStats(player.id, statsForm);
+    setSavingStats(false);
+    setEditingStats(false);
+  };
+
+  const handleAwardsSave = async () => {
+    setSavingAwards(true);
+    await updatePlayerContract(player.id, form);
+    setSavingAwards(false);
+    setEditingAwards(false);
   };
 
   const backdropV = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
@@ -342,9 +411,6 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
                 >
                   {pos}
                 </span>
-                {player.playstyle && (
-                  <span className="stat-label" style={{ color: "var(--caution)" }}>{player.playstyle}</span>
-                )}
               </div>
 
               <button
@@ -381,9 +447,9 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
                   {player.age != null && <span className="stat-label">{player.age} anos</span>}
                   {player.age != null && player.height != null && <span style={{ color: "var(--muted-dim)" }}>·</span>}
                   {player.height != null && <span className="stat-label">{player.height}cm</span>}
-                  {player.feet && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label">Pé {player.feet}</span></>}
-                  {player.skillMoves != null && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label" style={{ color: "var(--caution)" }}>SM {"★".repeat(player.skillMoves)}</span></>}
-                  {player.weakFoot != null && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label" style={{ color: "var(--accent)" }}>WF {"★".repeat(player.weakFoot)}</span></>}
+                  {feetLabel && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label">Pé {feetLabel}</span></>}
+                  {player.skillMoves != null && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label" style={{ color: "var(--caution)" }}>DRI {"★".repeat(player.skillMoves)}</span></>}
+                  {player.weakFoot != null && <><span style={{ color: "var(--muted-dim)" }}>·</span><span className="stat-label" style={{ color: "var(--accent)" }}>PR {"★".repeat(player.weakFoot)}</span></>}
                 </div>
               </div>
 
@@ -411,7 +477,7 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
               {hasDetailedStats && (
                 <div className="flex-1 px-6 py-5 flex flex-col gap-3 min-w-0">
                   <p className="stat-label mb-1">Atributos</p>
-                  {STAT_DEFS.map(({ key, label }) => {
+                  {activeDefs.map(({ key, label }) => {
                     const val = player[key] as number | null | undefined;
                     if (val == null) return null;
                     return <StatBar key={key} label={label} value={val} />;
@@ -428,7 +494,7 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
                   <p className="stat-label mb-3 text-center">Atributos</p>
                 )}
                 {hasRadarData ? (
-                  <RadarChart stats={radarStats} />
+                  <RadarChart stats={radarStats} axes={activeAxes} />
                 ) : (
                   <div className="flex flex-col items-center gap-2 py-6">
                     <Activity className="h-6 w-6" style={{ color: "var(--muted-dim)" }} />
@@ -441,25 +507,88 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
 
             {/* ── Temporada ─────────────────────────────── */}
             <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--divider)" }}>
-              <p className="stat-label mb-3">Temporada</p>
-              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))" }}>
-                <SeasonBox label="Jogos" value={player.matches ?? 0} />
-                <SeasonBox label="Gols" value={player.goals ?? 0}
-                  color={(player.goals ?? 0) > 0 ? "var(--accent-strong)" : "var(--muted-dim)"} />
-                <SeasonBox label="Assist." value={player.assists ?? 0}
-                  color={(player.assists ?? 0) > 0 ? "var(--accent)" : "var(--muted-dim)"} />
-                <SeasonBox label="CA" value={player.yellowCards ?? 0}
-                  color={(player.yellowCards ?? 0) > 0 ? "#f5c518" : "var(--muted-dim)"}
-                  title="Cartões Amarelos" />
-                <SeasonBox label="CV" value={player.redCards ?? 0}
-                  color={(player.redCards ?? 0) > 0 ? "var(--loss)" : "var(--muted-dim)"}
-                  title="Cartões Vermelhos" />
-                {isDefensive && (
-                  <SeasonBox label="CS" value={player.cleanSheets ?? 0}
-                    color={(player.cleanSheets ?? 0) > 0 ? "var(--accent)" : "var(--muted-dim)"}
-                    title="Jogos sem sofrer gols" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="stat-label">Temporada</p>
+                {!editingStats ? (
+                  <button
+                    onClick={() => setEditingStats(true)}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-all"
+                    style={{ background: "rgba(82,222,229,0.07)", border: "1px solid rgba(82,222,229,0.2)", color: "var(--muted)" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(82,222,229,0.4)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(82,222,229,0.2)"; }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Editar
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingStats(false)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                      style={{ border: "1px solid var(--panel-border)", color: "var(--muted)" }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleStatsSave}
+                      disabled={savingStats}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                      style={{ background: "rgba(82,222,229,0.15)", border: "1px solid rgba(82,222,229,0.4)", color: "var(--accent)" }}
+                    >
+                      {savingStats ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Salvar
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {editingStats ? (
+                <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
+                  {([
+                    { key: "matches",     label: "Jogos" },
+                    { key: "goals",       label: "Gols" },
+                    { key: "assists",     label: "Assist." },
+                    { key: "yellowCards", label: "Cartões A." },
+                    { key: "redCards",    label: "Cartões V." },
+                    ...(isDefensive ? [{ key: "cleanSheets", label: "Clean Sheets" }] : []),
+                  ] as { key: keyof SeasonStats; label: string }[]).map(({ key, label }) => (
+                    <div key={key} className="flex flex-col gap-1">
+                      <span className="stat-label">{label}</span>
+                      <div
+                        className="flex items-center rounded-lg px-2 py-1"
+                        style={{ background: "var(--background)", border: "1px solid var(--panel-border-strong)" }}
+                      >
+                        <input
+                          type="number" min={0}
+                          value={statsForm[key]}
+                          onChange={(e) => setStatsForm((s) => ({ ...s, [key]: Math.max(0, Math.floor(Number(e.target.value))) }))}
+                          className="w-full bg-transparent text-center text-sm font-bold tabular-nums outline-none"
+                          style={{ color: "var(--foreground)", fontFamily: "var(--font-teko), sans-serif", fontSize: "1.2rem" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))" }}>
+                  <SeasonBox label="Jogos" value={statsForm.matches} />
+                  <SeasonBox label="Gols" value={statsForm.goals}
+                    color={statsForm.goals > 0 ? "var(--accent-strong)" : "var(--muted-dim)"} />
+                  <SeasonBox label="Assist." value={statsForm.assists}
+                    color={statsForm.assists > 0 ? "var(--accent)" : "var(--muted-dim)"} />
+                  <SeasonBox label="CA" value={statsForm.yellowCards}
+                    color={statsForm.yellowCards > 0 ? "#f5c518" : "var(--muted-dim)"}
+                    title="Cartões Amarelos" />
+                  <SeasonBox label="CV" value={statsForm.redCards}
+                    color={statsForm.redCards > 0 ? "var(--loss)" : "var(--muted-dim)"}
+                    title="Cartões Vermelhos" />
+                  {isDefensive && (
+                    <SeasonBox label="CS" value={statsForm.cleanSheets}
+                      color={statsForm.cleanSheets > 0 ? "var(--accent)" : "var(--muted-dim)"}
+                      title="Jogos sem sofrer gols" />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ── Contrato & finanças ───────────────────── */}
@@ -566,19 +695,47 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
             <div className="px-6 py-5">
               <div className="flex items-center justify-between mb-4">
                 <p className="stat-label">Prêmios da Temporada</p>
-                {editing && (
-                  <span className="stat-label" style={{ color: "var(--accent)" }}>
-                    clique para marcar/desmarcar
-                  </span>
+                {!editingAwards ? (
+                  <button
+                    onClick={() => setEditingAwards(true)}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-all"
+                    style={{ background: "rgba(82,222,229,0.07)", border: "1px solid rgba(82,222,229,0.2)", color: "var(--muted)" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--accent)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(82,222,229,0.4)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--muted)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(82,222,229,0.2)"; }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Editar
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingAwards(false)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                      style={{ border: "1px solid var(--panel-border)", color: "var(--muted)" }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleAwardsSave}
+                      disabled={savingAwards}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                      style={{ background: "rgba(82,222,229,0.15)", border: "1px solid rgba(82,222,229,0.4)", color: "var(--accent)" }}
+                    >
+                      {savingAwards ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Salvar
+                    </button>
+                  </div>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {AWARDS.map(({ key, label, icon: Icon, color }) => {
-                  const active = form[key];
-                  return editing ? (
+              {/* Boolean awards */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {BOOLEAN_AWARDS.map(({ key, label, icon: Icon, color }) => {
+                  const active = form[key] as boolean;
+                  return editingAwards ? (
                     <button
                       key={key}
+                      type="button"
                       onClick={() => setForm((f) => ({ ...f, [key]: !f[key] }))}
                       className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
                       style={{
@@ -596,11 +753,7 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
                     <div
                       key={key}
                       className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium"
-                      style={{
-                        background: `${color}18`,
-                        border: `1px solid ${color}44`,
-                        color,
-                      }}
+                      style={{ background: `${color}18`, border: `1px solid ${color}44`, color }}
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {label}
@@ -608,15 +761,57 @@ export function PlayerDetailModal({ player, onClose }: PlayerDetailModalProps) {
                   ) : null;
                 })}
 
-                {!editing && activeAwards.length === 0 && (
-                  <div className="flex items-center gap-2">
-                    <Trophy className="h-4 w-4" style={{ color: "var(--muted-dim)" }} />
-                    <p className="stat-label">
-                      Nenhum prêmio ainda — clique em{" "}
-                      <span style={{ color: "var(--accent)" }}>Editar</span> para adicionar
-                    </p>
-                  </div>
+                {!editingAwards && activeAwards.length === 0 && (
+                  <p className="stat-label" style={{ color: "var(--muted-dim)" }}>Nenhum prêmio individual</p>
                 )}
+              </div>
+
+              {/* Counter awards */}
+              <div className="flex flex-wrap gap-3">
+                {COUNTER_AWARDS.map(({ key, label, icon: Icon, color }) => {
+                  const count = form[key] as number;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2"
+                      style={{
+                        background: count > 0 ? `${color}10` : "var(--panel-bg-subtle)",
+                        border: `1px solid ${count > 0 ? color + "44" : "var(--panel-border)"}`,
+                        minWidth: "130px",
+                      }}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" style={{ color: count > 0 ? color : "var(--muted-dim)" }} />
+                      <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+                        <span className="stat-label" style={{ color: count > 0 ? color : "var(--muted)" }}>{label}</span>
+                        {editingAwards ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, [key]: Math.max(0, (f[key] as number) - 1) }))}
+                              className="flex h-5 w-5 items-center justify-center rounded text-xs font-bold transition-colors"
+                              style={{ background: "var(--panel-border-strong)", color: "var(--muted)" }}
+                            >−</button>
+                            <span
+                              className="tabular-nums font-bold"
+                              style={{ fontFamily: "var(--font-teko), sans-serif", fontSize: "1.1rem", color: count > 0 ? color : "var(--muted-dim)", minWidth: "1.5rem", textAlign: "center" }}
+                            >{count}</span>
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, [key]: (f[key] as number) + 1 }))}
+                              className="flex h-5 w-5 items-center justify-center rounded text-xs font-bold transition-colors"
+                              style={{ background: "var(--panel-border-strong)", color: "var(--muted)" }}
+                            >+</button>
+                          </div>
+                        ) : (
+                          <span
+                            className="tabular-nums font-bold"
+                            style={{ fontFamily: "var(--font-teko), sans-serif", fontSize: "1.3rem", lineHeight: 1, color: count > 0 ? color : "var(--muted-dim)" }}
+                          >{count}×</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

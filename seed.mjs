@@ -24,15 +24,29 @@ fs.createReadStream('players.csv')
             overall: parseInt(data['OVR']) || 0,
             position: data['Position'] || 'RES',
             age: parseInt(data['Age']) || 0,
-            nation: data['Nation'],
-            league: data['League'],
-            team: data['Team'],
+            nation: data['Nation'] || null,
+            league: data['League'] || null,
+            team: data['Team'] || null,
             pace: parseInt(data['PAC']) || null,
             shooting: parseInt(data['SHO']) || null,
             passing: parseInt(data['PAS']) || null,
             dribbling: parseInt(data['DRI']) || null,
             defending: parseInt(data['DEF']) || null,
             physicality: parseInt(data['PHY']) || null,
+            // Perfil físico e habilidades
+            height: parseInt(data['Height']) || null,
+            weight: parseInt(data['Weight']) || null,
+            preferredFoot: data['Preferred foot'] || null,
+            weakFoot: parseInt(data['Weak foot']) || null,
+            skillMoves: parseInt(data['Skill moves']) || null,
+            playstyle: data['play style'] || null,
+            altPositions: data['Alternative positions'] || null,
+            // Atributos de Goleiro
+            gkDiving:      parseInt(data['GK Diving'])      || null,
+            gkHandling:    parseInt(data['GK Handling'])    || null,
+            gkKicking:     parseInt(data['GK Kicking'])     || null,
+            gkPositioning: parseInt(data['GK Positioning']) || null,
+            gkReflexes:    parseInt(data['GK Reflexes'])    || null,
         });
     })
     .on('end', async () => {
